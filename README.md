@@ -64,7 +64,7 @@ This repo ships as a reusable GitHub Action. Add it to any workflow to trigger a
 | -------------- | -------- | ------------ | -------------------------------------------------------------------------- |
 | `service-url`  | yes      | —            | Base URL of your docker-image-creator instance                             |
 | `api-password` | yes      | —            | `API_PASSWORD` of your instance                                            |
-| `image-name`   | yes      | —            | Docker image name to push (e.g. `myregistry/myimage:latest`)               |
+| `image-name`   | yes      | —            | Docker image name to push (e.g. `myimage:latest`)               |
 | `repo`         | no       | current repo | Git repo URL to build from — defaults to the repo the action is running in |
 | `dockerfile`   | no       | `Dockerfile` | Path to Dockerfile within the repo                                         |
 | `timeout`      | no       | `600`        | Request timeout in seconds (10 minutes)                                    |
@@ -88,7 +88,7 @@ jobs:
         with:
           service-url: ${{ secrets.BUILDER_URL }}
           api-password: ${{ secrets.BUILDER_PASSWORD }}
-          image-name: myregistry/myimage:latest
+          image-name: myimage:latest
 ```
 
 **Build a different repo:**
@@ -99,7 +99,7 @@ jobs:
     service-url: ${{ secrets.BUILDER_URL }}
     api-password: ${{ secrets.BUILDER_PASSWORD }}
     repo: https://github.com/other/repo
-    image-name: myregistry/myimage:latest
+    image-name: myimage:latest
     dockerfile: docker/Dockerfile.prod
 ```
 
@@ -111,7 +111,7 @@ jobs:
   with:
     service-url: ${{ secrets.BUILDER_URL }}
     api-password: ${{ secrets.BUILDER_PASSWORD }}
-    image-name: myregistry/myimage:${{ github.sha }}
+    image-name: myimage:${{ github.sha }}
 
 - run: echo "Pushed ${{ steps.build.outputs.image }}"
 ```
