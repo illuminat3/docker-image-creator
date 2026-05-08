@@ -53,3 +53,74 @@ Clones repo, builds Docker image, pushes to registry configured in env.
   "image": "registry.example.com/myapp:latest"
 }
 ```
+
+## GitHub Action
+
+This repo ships as a reusable GitHub Action. Add it to any workflow to trigger a build without writing curl yourself.
+
+### Inputs
+
+| Input          | Required | Default      | Description                                                                |
+| -------------- | -------- | ------------ | -------------------------------------------------------------------------- |
+| `service-url`  | yes      | —            | Base URL of your docker-image-creator instance                             |
+| `api-password` | yes      | —            | `API_PASSWORD` of your instance                                            |
+| `image-name`   | yes      | —            | Docker image name to push (e.g. `myregistry/myimage:latest`)               |
+| `repo`         | no       | current repo | Git repo URL to build from — defaults to the repo the action is running in |
+| `dockerfile`   | no       | `Dockerfile` | Path to Dockerfile within the repo                                         |
+| `timeout`      | no       | `600`        | Request timeout in seconds (10 minutes)                                    |
+
+### Outputs
+
+| Output  | Description           |
+| ------- | --------------------- |
+| `image` | The pushed image name |
+
+### Usage
+
+**Build the current repo (most common):**
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: illuminat3/docker-image-creator@main
+        with:
+          service-url: ${{ secrets.BUILDER_URL }}
+          api-password: ${{ secrets.BUILDER_PASSWORD }}
+          image-name: myregistry/myimage:latest
+```
+
+**Build a different repo:**
+
+```yaml
+- uses: illuminat3/docker-image-creator@main
+  with:
+    service-url: ${{ secrets.BUILDER_URL }}
+    api-password: ${{ secrets.BUILDER_PASSWORD }}
+    repo: https://github.com/other/repo
+    image-name: myregistry/myimage:latest
+    dockerfile: docker/Dockerfile.prod
+```
+
+**Use the output image name in a later step:**
+
+```yaml
+- uses: illuminat3/docker-image-creator@main
+  id: build
+  with:
+    service-url: ${{ secrets.BUILDER_URL }}
+    api-password: ${{ secrets.BUILDER_PASSWORD }}
+    image-name: myregistry/myimage:${{ github.sha }}
+
+- run: echo "Pushed ${{ steps.build.outputs.image }}"
+```
+
+### Secrets setup
+
+Add these secrets to your repo under **Settings → Secrets and variables → Actions**:
+
+| Secret             | Value                                          |
+| ------------------ | ---------------------------------------------- |
+| `BUILDER_URL`      | URL of your docker-image-creator instance      |
+| `BUILDER_PASSWORD` | The `API_PASSWORD` from your instance's `.env` |

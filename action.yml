@@ -1,0 +1,83 @@
+name: 'Build Docker Image'
+description: 'Clones a git repo and builds + pushes a Docker image via docker-image-creator'
+author: 'illuminat3'
+
+inputs:
+  service-url:
+    description: 'Base URL of the docker-image-creator service (e.g. https://your-service.com)'
+    required: true
+  api-password:
+    description: 'API password for the docker-image-creator service'
+    required: true
+  repo:
+    description: 'Git repository URL to build from (defaults to the current repo)'
+    required: false
+  image-name:
+    description: 'Docker image name to push (e.g. myuser/myimage:latest)'
+    required: true
+  dockerfile:
+    description: 'Path to Dockerfile within the repo'
+    required: false
+    default: 'Dockerfile'
+  timeout:
+    description: 'Request timeout in seconds (default 600 = 10 minutes)'
+    required: false
+    default: '600'
+
+outputs:
+  image:
+    description: 'The pushed image name'
+    value: ${{ steps.build.outputs.image }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build and push Docker image
+      id: build
+      shell: bash
+      env:
+        SERVICE_URL: ${{ inputs.service-url }}
+        API_PASSWORD: ${{ inputs.api-password }}
+        REPO: ${{ inputs.repo }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        DOCKERFILE: ${{ inputs.dockerfile }}
+        TIMEOUT: ${{ inputs.timeout }}
+      run: |
+        REPO="${REPO:-${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}}"
+
+        PAYLOAD=$(jq -n \
+          --arg repo "$REPO" \
+          --arg dockerfile "$DOCKERFILE" \
+          --arg imageName "$IMAGE_NAME" \
+          '{repo: $repo, dockerfile: $dockerfile, imageName: $imageName}')
+
+        echo "Sending build request for $IMAGE_NAME from $REPO..."
+
+        HTTP_RESPONSE=$(curl \
+          --max-time "$TIMEOUT" \
+          --silent \
+          --show-error \
+          -w "\n%{http_code}" \
+          -X POST "${SERVICE_URL}/build" \
+          -H "Authorization: Bearer ${API_PASSWORD}" \
+          -H "Content-Type: application/json" \
+          -d "$PAYLOAD")
+
+        HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
+        BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+
+        if [ "$HTTP_STATUS" -ne 200 ]; then
+          ERROR=$(echo "$BODY" | jq -r '.error // "Unknown error"')
+          echo "::error::Build failed (HTTP $HTTP_STATUS): $ERROR"
+          exit 1
+        fi
+
+        SUCCESS=$(echo "$BODY" | jq -r '.success // false')
+        if [ "$SUCCESS" != "true" ]; then
+          ERROR=$(echo "$BODY" | jq -r '.error // "Unknown error"')
+          echo "::error::Build failed: $ERROR"
+          exit 1
+        fi
+
+        echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+        echo "Build and push succeeded: $IMAGE_NAME"
